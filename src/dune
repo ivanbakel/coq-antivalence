@@ -1,0 +1,6 @@
+(library
+ (name antivalence_plugin)
+ (public_name coq.plugins.antivalence)
+ (libraries coq.plugins.ltac))
+
+(coq.pp (modules antivalence))

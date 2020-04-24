@@ -1,0 +1,9 @@
+-R theories/ Antivalence
+-I src
+
+theories/Loader.v
+theories/Test.v
+
+src/type_inequality.ml
+src/antivalence.mlg
+src/antivalence_plugin.mlpack

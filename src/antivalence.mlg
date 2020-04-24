@@ -1,0 +1,7 @@
+DECLARE PLUGIN "antivalence"
+
+VERNAC COMMAND EXTEND AxiomatizeTypeInequality CLASSIFIED AS SIDEFF
+| [ "Axiomatize" "Type" "Inequality" ] ->
+  { Type_inequality.generate_type_inequality_axioms ()
+  }
+END
