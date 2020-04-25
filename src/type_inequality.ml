@@ -16,7 +16,7 @@ open Declarations
 let get_label_string indDec =
   Names.Id.to_string (indDec.mind_typename)
 
-(* For index n, and term t with arity r, build t vn ... vn+r for the deBruijn
+(* For index n, and term t with arity r, build t vn+r ... vn for the deBruijn
  * indices vn ... vn+r *)
 let apply_universal_vars_in_context_from_index ctxts term n =
   (* Calculate how many deBruijn indices to create *)
@@ -98,7 +98,13 @@ let generate_type_inequality_axioms () =
   let not = Coqlib.lib_ref "core.not.type" in
   let (sigma, not) = (Evarutil.new_global sigma not) in
   (* Get all inductive definitions to create axioms for *)
-  let inductives = Environ.fold_inductives (fun ind indDec l -> Array.append (pair_inductive_with_declaration_body ind indDec) l) env [| |] in
+  let inductives =
+        Environ.fold_inductives
+          (fun ind indDec l ->
+            Array.append (pair_inductive_with_declaration_body ind indDec) l)
+          env
+          [| |]
+  in
   let ind_pairs = distinct_pairs inductives in
   (* Build the axioms themselves *)
   Array.iter (fun (l, r) -> declare_type_inequality_axiom env sigma (univs, ubinders) eq not l r) ind_pairs
