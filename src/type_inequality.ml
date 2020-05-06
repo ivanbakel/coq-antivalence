@@ -65,7 +65,7 @@ let declare_type_inequality_axiom env sigma univ eq not (ind1, indBody1) (ind2, 
   | Declarations.RegularArity _ ->
       begin match indBody2.mind_arity with
       | Declarations.RegularArity _ ->
-          let (_axRef, _axInstace) =
+          let (axRef, _axInstance) =
             ComAssumption.declare_axiom
                 ~poly:false
                 ~local:Declare.ImportDefaultBehavior
@@ -77,6 +77,14 @@ let declare_type_inequality_axiom env sigma univ eq not (ind1, indBody1) (ind2, 
                 Declaremods.NoInline
                 (CAst.make (Names.Id.of_string axiom_name))
           in
+          (* Since we don't want users to use the axiom by name, we also stick
+           * it in the hint database as a Hint Resolve, so that @trivial@ will
+           * pick it up when necessary *)
+          let name = Hints.PathHints [axRef] in
+          let hint_entry_list = Hints.make_resolves ~name env sigma (true, false, false) Hints.empty_hint_info ~poly:true (Hints.IsGlobRef axRef) in
+          let core_db = Hints.searchtable_map "core" in
+          let core_db = Hints.Hint_db.add_list env sigma hint_entry_list core_db in
+          let () = Hints.searchtable_add ("core", core_db) in
           Feedback.msg_notice (Pp.strbrk ("Declared \"" ^ axiom_name ^ "\"."))
       | Declarations.TemplateArity _ -> ()
       end
