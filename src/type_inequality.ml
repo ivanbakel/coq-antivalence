@@ -42,42 +42,54 @@ let quantify_universal_vars_in_context ctxts term =
 (* Generating the axiom for two inductive declarations *)
 let declare_type_inequality_axiom env sigma univ eq not (ind1, indBody1) (ind2, indBody2) =
   let axiom_name = get_label_string indBody1 ^ "_neq_" ^ get_label_string indBody2 in
-  (* Fully apply the inductive type constructors to get two terms, generating a
-   * new variable in each argument position for each constructor
-   * Notice we start from 1 here because deBruijn indices are 1-indexed *)
-  let (t2, n) = apply_universal_vars_in_context_from_index indBody2.mind_arity_ctxt (EConstr.mkInd ind2) 1 in
-  (* Here we start from the index n being the next deBruijn index *)
-  let (t1, _) = apply_universal_vars_in_context_from_index indBody1.mind_arity_ctxt (EConstr.mkInd ind1) n in
-  (* Build the negation of the equality of the fully-applied terms *)
-  let t1_neq_t2 = EConstr.mkApp (not, [|(EConstr.mkApp (eq, [|EConstr.mkSet; t1; t2|]))|]) in
-  (* Quantify all the variables used in the terms *)
-  let quantified_t1_neq_t2 =
-        quantify_universal_vars_in_context
-          indBody1.mind_arity_ctxt
-          (quantify_universal_vars_in_context
-            indBody2.mind_arity_ctxt
-            t1_neq_t2)
-  in
   (* Generate the axiom itself *)
   (* The axiom generated doesn't work for inductives in the template universe -
    * and I don't know why. *)
   match indBody1.mind_arity with
-  | Declarations.RegularArity _ ->
+  | Declarations.RegularArity regArity1 ->
       begin match indBody2.mind_arity with
-      | Declarations.RegularArity _ ->
-          let (_axRef, _axInstace) =
-            ComAssumption.declare_axiom
-                ~poly:false
-                ~local:Declare.ImportDefaultBehavior
-                ~kind:Decls.Logical
-                false
-                (EConstr.to_constr sigma quantified_t1_neq_t2)
-                univ
-                []
-                Declaremods.NoInline
-                (CAst.make (Names.Id.of_string axiom_name))
+      | Declarations.RegularArity regArity2 ->
+          (* Fully apply the inductive type constructors to get two terms, generating a
+           * new variable in each argument position for each constructor
+           * Notice we start from 1 here because deBruijn indices are 1-indexed *)
+          let (t2, n) = apply_universal_vars_in_context_from_index indBody2.mind_arity_ctxt (EConstr.mkInd ind2) 1 in
+          (* Here we start from the index n being the next deBruijn index *)
+          let (t1, _) = apply_universal_vars_in_context_from_index indBody1.mind_arity_ctxt (EConstr.mkInd ind1) n in
+          (* Build the negation of the equality of the fully-applied terms *)
+          let t1_neq_t2 = EConstr.mkApp (not, [|(EConstr.mkApp (eq, [|EConstr.mkSort regArity1.mind_sort; t1; t2|]))|]) in
+          (* Quantify all the variables used in the terms *)
+          let quantified_t1_neq_t2 =
+                quantify_universal_vars_in_context
+                  indBody1.mind_arity_ctxt
+                  (quantify_universal_vars_in_context
+                    indBody2.mind_arity_ctxt
+                    t1_neq_t2)
           in
-          Feedback.msg_notice (Pp.strbrk ("Declared \"" ^ axiom_name ^ "\"."))
+          if (Sorts.equal regArity1.mind_sort regArity2.mind_sort)
+            then
+              (* Generate a unique new axiom name by adding ' repeatedly *)
+              let axiom_name =
+                let base_name = ref axiom_name in
+                while Global.exists_objlabel (Names.Label.of_id (Names.Id.of_string !base_name)) do
+                  base_name := !base_name ^ "'"
+                done;
+                !base_name in
+              let sigma = Evd.fix_undefined_variables sigma in
+              (* TODO: load these into the hint DB *)
+              let (_axRef, _axInstace) =
+                ComAssumption.declare_axiom
+                    ~poly:true
+                    ~local:Declare.ImportDefaultBehavior
+                    ~kind:Decls.Logical
+                    false
+                    (EConstr.to_constr sigma quantified_t1_neq_t2)
+                    univ
+                    []
+                    Declaremods.NoInline
+                    (CAst.make (Names.Id.of_string axiom_name))
+              in
+              Feedback.msg_notice (Pp.strbrk ("Declared \"" ^ axiom_name ^ "\"."))
+            else ()
       | Declarations.TemplateArity _ -> ()
       end
   | Declarations.TemplateArity _ -> ()
